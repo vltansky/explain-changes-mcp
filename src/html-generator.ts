@@ -1,10 +1,16 @@
 type Editor = "vscode" | "cursor" | "auto";
 type DiffStyle = "line-by-line" | "side-by-side";
 
+type Action = {
+  label: string;
+  prompt: string;
+};
+
 type Annotation = {
   file: string;
   line?: number;
   explanation: string;
+  actions?: Action[];
 };
 
 type EditorConfig = {
@@ -39,7 +45,8 @@ function escapeForJs(text: string): string {
   return text
     .replace(/\\/g, "\\\\")
     .replace(/`/g, "\\`")
-    .replace(/\$/g, "\\$");
+    .replace(/\$/g, "\\$")
+    .replace(/'/g, "\\'");
 }
 
 function renderEditorButtons(editors: EditorConfig[]): string {
@@ -56,13 +63,31 @@ function renderEditorButtons(editors: EditorConfig[]): string {
     .join("");
 }
 
+const CURSOR_LOGO_SVG = `<svg fill="none" height="22" width="22" viewBox="0 0 22 22"><title class="sr-only">Cursor Logo</title><g clip-path="url(#a)" fill="currentColor"><path d="M19.162 5.452 10.698.565a.88.88 0 0 0-.879 0L1.356 5.452a.74.74 0 0 0-.37.64v9.853a.74.74 0 0 0 .37.64l8.464 4.887a.879.879 0 0 0 .879 0l8.464-4.886a.74.74 0 0 0 .37-.64V6.091a.74.74 0 0 0-.37-.64Zm-.531 1.035L10.46 20.639c-.055.095-.201.056-.201-.055v-9.266a.52.52 0 0 0-.26-.45L1.975 6.237c-.096-.056-.057-.202.054-.202h16.34c.233 0 .378.252.262.453Zm11.057-.555h3.602v1.984h-3.48c-1.877 0-3.342 1.083-3.342 3.372 0 2.29 1.465 3.373 3.342 3.373h3.48v1.984h-3.754c-3.144 0-5.372-1.847-5.372-5.356 0-3.51 2.38-5.357 5.524-5.357Zm5.432 0h2.227v6.546c0 1.633.748 2.396 2.503 2.396 1.755 0 2.503-.763 2.503-2.396V5.932h2.228v7.004c0 2.38-1.511 3.892-4.731 3.892-3.22 0-4.73-1.526-4.73-3.907v-6.99Zm21.106 3.036c0 1.19-.687 2.106-1.602 2.503v.03c.961.138 1.45.825 1.465 1.756l.045 3.388h-2.228l-.045-3.022c-.015-.671-.412-1.083-1.206-1.083h-3.708v4.105h-2.228V5.932h6.15c2.014 0 3.357 1.022 3.357 3.037Zm-2.243.306c0-.916-.489-1.42-1.404-1.42h-3.632v2.839h3.662c.84 0 1.374-.504 1.374-1.42Zm10.67 4.242c0-.763-.489-1.083-1.221-1.144l-2.472-.229c-2.137-.198-3.251-1.038-3.251-3.068 0-2.03 1.374-3.143 3.342-3.143h5.463v1.922h-5.31c-.763 0-1.252.397-1.252 1.16 0 .763.504 1.13 1.267 1.19l2.518.214c1.908.168 3.159 1.038 3.159 3.083s-1.328 3.144-3.205 3.144h-5.707v-1.923h5.494c.717 0 1.175-.488 1.175-1.205Zm8.751-7.768c3.357 0 5.479 2.152 5.479 5.524 0 3.373-2.213 5.555-5.57 5.555-3.358 0-5.479-2.182-5.479-5.555 0-3.372 2.213-5.524 5.57-5.524Zm3.174 5.54c0-2.26-1.312-3.587-3.22-3.587-1.908 0-3.22 1.328-3.22 3.587 0 2.258 1.312 3.585 3.22 3.585 1.908 0 3.22-1.327 3.22-3.585Zm13.362-2.32c0 1.19-.686 2.106-1.602 2.503v.03c.962.138 1.45.825 1.465 1.756l.046 3.388h-2.228l-.045-3.022c-.016-.671-.413-1.083-1.206-1.083h-3.71v4.105h-2.227V5.932h6.15c2.014 0 3.357 1.022 3.357 3.037Zm-2.242.306c0-.916-.489-1.42-1.404-1.42h-3.632v2.839h3.662c.839 0 1.374-.504 1.374-1.42Z"></path></g></svg>`;
+
+function renderActions(actions: Action[] = [], editor: Editor = "auto"): string {
+  if (actions.length === 0) return "";
+  if (editor !== "cursor" && editor !== "auto") return "";
+  return actions
+    .map(
+      (action) => `
+    <a href="cursor://anysphere.cursor-deeplink/prompt?text=${encodeURIComponent(action.prompt)}" class="action-btn-link">
+      ${CURSOR_LOGO_SVG}
+      <span>${escapeHtml(action.label)}</span>
+    </a>
+  `
+    )
+    .join("");
+}
+
 export function generateHTML(
   title: string,
   summary: string | undefined,
   diff: string,
   annotations: Annotation[],
   editor: Editor = "auto",
-  diffStyle: DiffStyle = "side-by-side"
+  diffStyle: DiffStyle = "side-by-side",
+  globalActions: Action[] = []
 ): string {
   const editors: EditorConfig[] =
     editor === "auto" ? [EDITORS.vscode, EDITORS.cursor] : [EDITORS[editor]];
@@ -187,6 +212,90 @@ export function generateHTML(
       background: #30363d;
       border-color: #8b949e;
       transform: translateY(-1px);
+    }
+
+    .action-btn-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+      text-decoration: none;
+      background: #21262d;
+      color: #e6edf3;
+      height: 36px;
+      padding: 0 16px;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      cursor: pointer;
+    }
+
+    .action-btn-link:hover {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+
+    .action-btn-link:focus-visible {
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+    }
+
+    .action-btn-link svg {
+      pointer-events: none;
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+    }
+
+    .text-foreground {
+      color: #e6edf3;
+    }
+
+    .italic {
+      font-style: italic;
+    }
+
+    .leading-snug {
+      line-height: 1.375;
+    }
+
+    .text-sm {
+      font-size: 14px;
+    }
+
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .items-center {
+      align-items: center;
+    }
+
+    .justify-between {
+      justify-content: space-between;
+    }
+
+    .gap-3 {
+      gap: 12px;
+    }
+
+    .header-global-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: 16px;
+      border-left: 1px solid #30363d;
+      padding-left: 16px;
     }
 
     /* Summary */
@@ -365,6 +474,12 @@ export function generateHTML(
       line-height: 1.6;
     }
 
+    .ai-annotation-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
     /* Annotation row full width */
     .d2h-diff-tbody td[colspan] {
       width: 100% !important;
@@ -402,7 +517,10 @@ export function generateHTML(
 
     /* Responsive */
     @media (max-width: 768px) {
-      .header { padding: 12px 16px; }
+      .header { padding: 12px 16px; flex-direction: column; gap: 12px; }
+      .header-left { width: 100%; justify-content: space-between; }
+      .header-actions { width: 100%; justify-content: flex-end; }
+      .header-global-actions { padding-left: 0; border-left: none; border-top: 1px solid #30363d; padding-top: 12px; margin-left: 0; width: 100%; justify-content: flex-start; }
       .header-title { font-size: 14px; }
       .content, .summary { padding: 0 16px; }
       .d2h-file-name { font-size: 12px; }
@@ -414,6 +532,11 @@ export function generateHTML(
   <header class="header">
     <div class="header-left">
       <h1 class="header-title">${escapeHtml(title)}</h1>
+      ${globalActions.length > 0 ? `
+        <div class="header-global-actions">
+          ${renderActions(globalActions, editor)}
+        </div>
+      ` : ''}
     </div>
     <div class="header-actions">
       <div class="view-toggle">
@@ -458,6 +581,7 @@ export function generateHTML(
   <script>
     const diffString = \`${escapedDiff}\`;
     const annotations = ${annotationsJson};
+    const editor = '${editor}';
     let currentView = '${diffStyle}';
 
     // Render diff
@@ -502,6 +626,20 @@ export function generateHTML(
       });
     });
 
+    const CURSOR_LOGO_SVG = '<svg fill="none" height="22" width="22" viewBox="0 0 22 22"><title class="sr-only">Cursor Logo</title><g clip-path="url(#a)" fill="currentColor"><path d="M19.162 5.452 10.698.565a.88.88 0 0 0-.879 0L1.356 5.452a.74.74 0 0 0-.37.64v9.853a.74.74 0 0 0 .37.64l8.464 4.887a.879.879 0 0 0 .879 0l8.464-4.886a.74.74 0 0 0 .37-.64V6.091a.74.74 0 0 0-.37-.64Zm-.531 1.035L10.46 20.639c-.055.095-.201.056-.201-.055v-9.266a.52.52 0 0 0-.26-.45L1.975 6.237c-.096-.056-.057-.202.054-.202h16.34c.233 0 .378.252.262.453Zm11.057-.555h3.602v1.984h-3.48c-1.877 0-3.342 1.083-3.342 3.372 0 2.29 1.465 3.373 3.342 3.373h3.48v1.984h-3.754c-3.144 0-5.372-1.847-5.372-5.356 0-3.51 2.38-5.357 5.524-5.357Zm5.432 0h2.227v6.546c0 1.633.748 2.396 2.503 2.396 1.755 0 2.503-.763 2.503-2.396V5.932h2.228v7.004c0 2.38-1.511 3.892-4.731 3.892-3.22 0-4.73-1.526-4.73-3.907v-6.99Zm21.106 3.036c0 1.19-.687 2.106-1.602 2.503v.03c.961.138 1.45.825 1.465 1.756l.045 3.388h-2.228l-.045-3.022c-.015-.671-.412-1.083-1.206-1.083h-3.708v4.105h-2.228V5.932h6.15c2.014 0 3.357 1.022 3.357 3.037Zm-2.243.306c0-.916-.489-1.42-1.404-1.42h-3.632v2.839h3.662c.84 0 1.374-.504 1.374-1.42Zm10.67 4.242c0-.763-.489-1.083-1.221-1.144l-2.472-.229c-2.137-.198-3.251-1.038-3.251-3.068 0-2.03 1.374-3.143 3.342-3.143h5.463v1.922h-5.31c-.763 0-1.252.397-1.252 1.16 0 .763.504 1.13 1.267 1.19l2.518.214c1.908.168 3.159 1.038 3.159 3.083s-1.328 3.144-3.205 3.144h-5.707v-1.923h5.494c.717 0 1.175-.488 1.175-1.205Zm8.751-7.768c3.357 0 5.479 2.152 5.479 5.524 0 3.373-2.213 5.555-5.57 5.555-3.358 0-5.479-2.182-5.479-5.555 0-3.372 2.213-5.524 5.57-5.524Zm3.174 5.54c0-2.26-1.312-3.587-3.22-3.587-1.908 0-3.22 1.328-3.22 3.587 0 2.258 1.312 3.585 3.22 3.585 1.908 0 3.22-1.327 3.22-3.585Zm13.362-2.32c0 1.19-.686 2.106-1.602 2.503v.03c.962.138 1.45.825 1.465 1.756l.046 3.388h-2.228l-.045-3.022c-.016-.671-.413-1.083-1.206-1.083h-3.71v4.105h-2.227V5.932h6.15c2.014 0 3.357 1.022 3.357 3.037Zm-2.242.306c0-.916-.489-1.42-1.404-1.42h-3.632v2.839h3.662c.839 0 1.374-.504 1.374-1.42Z"></path></g></svg>';
+
+    // Helper to render actions HTML in JS
+    function renderActions(actions) {
+      if (!actions || actions.length === 0) return '';
+      if (editor !== 'cursor' && editor !== 'auto') return '';
+      return actions.map(action => \`
+        <a href="cursor://anysphere.cursor-deeplink/prompt?text=\${encodeURIComponent(action.prompt)}" class="action-btn-link">
+          \${CURSOR_LOGO_SVG}
+          <span>\${escapeHtml(action.label)}</span>
+        </a>
+      \`).join('');
+    }
+
     // Insert annotations after relevant lines
     function insertAnnotations() {
       annotations.forEach(annotation => {
@@ -532,7 +670,7 @@ export function generateHTML(
             // In side-by-side, usually right side has the new code (added/modified)
             // We'll search in the last body (which is right side in split, or the only body in unified)
             const searchBody = diffBodies[diffBodies.length - 1];
-            const lineNumbers = searchBody.querySelectorAll('.d2h-code-linenumber');
+            const lineNumbers = searchBody.querySelectorAll('.d2h-code-linenumber, .d2h-code-side-linenumber');
 
             lineNumbers.forEach(ln => {
               const lineNum = parseInt(ln.textContent.trim(), 10);
@@ -580,11 +718,14 @@ export function generateHTML(
                 // If side-by-side and this is the left side (index 0), render invisible clone to maintain height
                 const showContent = !isSideBySide || index === 1;
 
+                const actionsHtml = annotation.actions ? \`<div class="ai-annotation-actions">\${renderActions(annotation.actions)}</div>\` : '';
+
                 annotationRow.innerHTML = \`
                   <td colspan="\${colCount}" style="padding: 0; width: 100%;">
                     <div class="ai-annotation" \${!showContent ? 'style="visibility: hidden;"' : ''}>
                       <div class="ai-annotation-content">
                         <p class="ai-annotation-text">\${escapeHtml(annotation.explanation)}</p>
+                        \${actionsHtml}
                       </div>
                     </div>
                   </td>
@@ -601,6 +742,14 @@ export function generateHTML(
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    function escapeForJs(text) {
+      return text
+        .replace(new RegExp("\\\\\\\\", "g"), "\\\\\\\\")
+        .replace(new RegExp("\\\\x60", "g"), "\\\\\\\\\\\\x60")
+        .replace(new RegExp("\\\\$", "g"), "\\\\$")
+        .replace(new RegExp("'", "g"), "\\\\'");
     }
 
     // Enhance file headers with IDE links

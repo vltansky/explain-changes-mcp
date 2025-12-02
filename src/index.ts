@@ -20,10 +20,16 @@ const open = async (url: string) => {
 
 type Editor = "vscode" | "cursor" | "auto";
 
+type Action = {
+  label: string;
+  prompt: string;
+};
+
 type Annotation = {
   file: string;
   line?: number;
   explanation: string;
+  actions?: Action[];
 };
 
 type ShowDiffExplanationArgs = {
@@ -32,6 +38,7 @@ type ShowDiffExplanationArgs = {
   diff: string;
   annotations?: Annotation[];
   editor?: Editor;
+  globalActions?: Action[];
 };
 
 const server = new Server(
@@ -62,7 +69,9 @@ const EXPLAIN_CHANGES_PROMPT = `Explain the code changes visually using git diff
    - \`title\`: Descriptive title
    - \`summary\`: 1-2 sentence overview
    - \`diff\`: The raw git diff output (full unified diff format)
-   - \`annotations\`: Array of { file, line, explanation } for key changes
+   - \`annotations\`: Array of { file, line, explanation, actions? } for key changes.
+      - \`actions\`: Optional array of { label, prompt } to provide quick follow-up tasks in Cursor.
+   - \`globalActions\`: Optional array of { label, prompt } for project-wide tasks.
    - \`editor\`: Your IDE ("vscode" or "cursor")
 
 4. Write annotations that explain WHAT the code does based on the code itself and conversation context. Don't fabricate intent or reasons you can't know.`;
@@ -79,7 +88,9 @@ const EXPLAIN_CODE_PROMPT = `Explain code by showing it as a diff-style view.
    - \`title\`: Descriptive title
    - \`summary\`: High-level overview
    - \`diff\`: The code formatted as unified diff
-   - \`annotations\`: Array of { file, line, explanation }
+   - \`annotations\`: Array of { file, line, explanation, actions? }
+      - \`actions\`: Optional array of { label, prompt }
+   - \`globalActions\`: Optional array of { label, prompt }
    - \`editor\`: Your IDE ("vscode" or "cursor")
 
 4. Add annotations explaining what the code does. Base explanations on what's observable in the code.`;
@@ -130,6 +141,24 @@ The tool will:
                     type: "string",
                     description: "Your explanation of this change",
                   },
+                  actions: {
+                    type: "array",
+                    description: "Actions that can be performed on this annotation",
+                    items: {
+                      type: "object",
+                      properties: {
+                        label: {
+                          type: "string",
+                          description: "Label for the action button",
+                        },
+                        prompt: {
+                          type: "string",
+                          description: "The prompt to pre-fill in Cursor",
+                        },
+                      },
+                      required: ["label", "prompt"],
+                    },
+                  },
                 },
                 required: ["file", "explanation"],
               },
@@ -138,6 +167,24 @@ The tool will:
               type: "string",
               enum: ["vscode", "cursor", "auto"],
               description: "Which editor to show 'Open in' button for",
+            },
+            globalActions: {
+              type: "array",
+              description: "Global actions that can be performed on the diff",
+              items: {
+                type: "object",
+                properties: {
+                  label: {
+                    type: "string",
+                    description: "Label for the action button",
+                  },
+                  prompt: {
+                    type: "string",
+                    description: "The prompt to pre-fill in Cursor",
+                  },
+                },
+                required: ["label", "prompt"],
+              },
             },
           },
           required: ["title", "diff"],
@@ -217,7 +264,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       args.summary,
       args.diff,
       args.annotations || [],
-      args.editor || "auto"
+      args.editor || "auto",
+      "side-by-side",
+      args.globalActions
     );
 
     const timestamp = Date.now();

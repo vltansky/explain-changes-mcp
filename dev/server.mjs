@@ -56,6 +56,16 @@ index 1234567..89abcde 100644
       line: 5,
       explanation:
         'Extracts the JWT from the Authorization header, expecting "Bearer <token>" format.',
+      actions: [
+        {
+          label: "Explain JWT",
+          prompt: "Explain how JWT authentication works in detail",
+        },
+        {
+          label: "Add Expiration",
+          prompt: "Update the token generation to include an expiration time",
+        },
+      ],
     },
     {
       file: "src/middleware/auth.ts",
@@ -71,6 +81,17 @@ index 1234567..89abcde 100644
     },
   ],
   editor: "cursor",
+  globalActions: [
+    {
+      label: "Generate Tests",
+      prompt: "Create comprehensive unit tests for the auth middleware using Jest",
+    },
+    {
+      label: "Security Review",
+      prompt:
+        "Review this code for potential security vulnerabilities, specifically regarding JWT handling",
+    },
+  ],
 };
 
 // Track connected clients for live reload
@@ -106,7 +127,9 @@ const server = createServer(async (req, res) => {
       mockData.summary,
       mockData.diff,
       mockData.annotations,
-      mockData.editor
+      mockData.editor,
+      "side-by-side",
+      mockData.globalActions
     );
 
     // Inject live reload script
@@ -149,7 +172,7 @@ const server = createServer(async (req, res) => {
 const srcDir = join(__dirname, "../src");
 let debounceTimer = null;
 
-watch(srcDir, { recursive: true }, (eventType, filename) => {
+const watcher = watch(srcDir, { recursive: false }, (eventType, filename) => {
   if (!filename?.endsWith(".ts")) return;
 
   if (debounceTimer) clearTimeout(debounceTimer);
@@ -170,6 +193,10 @@ watch(srcDir, { recursive: true }, (eventType, filename) => {
       console.log(`🔄 Reloading ${clients.size} client(s)...`);
     });
   }, 100);
+});
+
+watcher.on('error', (err) => {
+  console.error('Watcher error:', err);
 });
 
 server.listen(PORT, async () => {
