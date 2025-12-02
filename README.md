@@ -2,9 +2,9 @@
 
 # Explain Changes MCP
 
-**Give your AI agent a way to show its work.**
+**The new way to review AI-generated code.**
 
-An MCP tool that lets AI visualize the code changes it made — rendering git diffs as interactive HTML pages with inline annotations.
+Get inline explanations that appear directly in your diff. No more jumping between the chat and your code to understand what changed.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -12,19 +12,24 @@ An MCP tool that lets AI visualize the code changes it made — rendering git di
 
 ---
 
-## What is this?
+## The Problem
 
-When an AI agent makes code changes, it usually just tells you what it did in text. This MCP gives the agent a better way to communicate: **a visual diff with annotations**.
+Code review has become one of the biggest bottlenecks in AI-assisted development. AI agents can generate multi-file changes in seconds, but **understanding what was done still takes time**.
+
+You end up jumping between:
+- The chat (where AI explained what it did)
+- The diff (where the actual changes are)
+- Your mental model (trying to connect the two)
+
+## The Solution
+
+After your AI completes a task, it calls this MCP to generate a visual diff with **inline annotations that appear directly next to the code**. The explanations live where they belong — in the diff itself.
 
 ```
-AI makes changes to your code
-       ↓
-AI calls show_diff_explanation
-       ↓
-Browser opens with diff + AI's annotations inline
+AI makes changes → AI calls show_diff_explanation → Browser opens with annotated diff
 ```
 
-The AI can highlight the important lines and explain what each change does — right next to the code.
+Works on any git diff: commits, PRs, branches. Ask follow-up questions right from the action buttons.
 
 ---
 
@@ -169,6 +174,12 @@ npm run dev
 ```
 
 Opens http://localhost:3456 with hot reload. Edit `src/html-generator.ts` to change styling, `dev/server.mjs` to change mock data.
+
+---
+
+## Inspiration
+
+Inspired by [Cline's `/explain-changes` feature](https://x.com/cline/status/1995892768116494488).
 
 ---
 
