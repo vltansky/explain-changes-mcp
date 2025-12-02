@@ -43,7 +43,7 @@ type ShowDiffExplanationArgs = {
 
 const server = new Server(
   {
-    name: "code-explainer-mcp",
+    name: "explain-changes-mcp",
     version: "1.0.0",
   },
   {
@@ -75,25 +75,6 @@ const EXPLAIN_CHANGES_PROMPT = `Explain the code changes visually using git diff
    - \`editor\`: Your IDE ("vscode" or "cursor")
 
 4. Write annotations that explain WHAT the code does based on the code itself and conversation context. Don't fabricate intent or reasons you can't know.`;
-
-const EXPLAIN_CODE_PROMPT = `Explain code by showing it as a diff-style view.
-
-## Instructions
-
-1. Read the file content
-
-2. Create a "fake" diff showing the code as additions (prefix lines with +)
-
-3. Call \`show_diff_explanation\` with:
-   - \`title\`: Descriptive title
-   - \`summary\`: High-level overview
-   - \`diff\`: The code formatted as unified diff
-   - \`annotations\`: Array of { file, line, explanation, actions? }
-      - \`actions\`: Optional array of { label, prompt }
-   - \`globalActions\`: Optional array of { label, prompt }
-   - \`editor\`: Your IDE ("vscode" or "cursor")
-
-4. Add annotations explaining what the code does. Base explanations on what's observable in the code.`;
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -201,10 +182,6 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
         name: "explain-changes",
         description: "Instructions for explaining code changes (git diff) with visual HTML output",
       },
-      {
-        name: "explain-code",
-        description: "Instructions for explaining code with visual HTML output",
-      },
     ],
   };
 });
@@ -220,20 +197,6 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           content: {
             type: "text" as const,
             text: EXPLAIN_CHANGES_PROMPT,
-          },
-        },
-      ],
-    };
-  }
-
-  if (name === "explain-code") {
-    return {
-      messages: [
-        {
-          role: "user" as const,
-          content: {
-            type: "text" as const,
-            text: EXPLAIN_CODE_PROMPT,
           },
         },
       ],
@@ -319,7 +282,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Code Explainer MCP server running on stdio");
+  console.error("Explain Changes MCP server running on stdio");
 }
 
 main().catch((error) => {

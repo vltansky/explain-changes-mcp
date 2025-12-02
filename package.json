@@ -1,11 +1,11 @@
 {
-  "name": "code-explainer-mcp",
+  "name": "explain-changes-mcp",
   "version": "1.0.0",
-  "description": "MCP server that renders AI-generated code explanations as beautiful HTML pages",
+  "description": "MCP tool for AI to visualize code changes with inline annotations",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "code-explainer-mcp": "dist/index.js"
+    "explain-changes-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -15,10 +15,10 @@
   },
   "keywords": [
     "mcp",
-    "code-explainer",
+    "explain-changes",
     "ai",
-    "code-review",
-    "diff"
+    "diff",
+    "visualization"
   ],
   "author": "",
   "license": "MIT",

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Code Explainer MCP
+# Explain Changes MCP
 
 **Give your AI agent a way to show its work.**
 
@@ -42,7 +42,7 @@ The AI can highlight the important lines and explain what each change does — r
 
 ```bash
 git clone <repo>
-cd code-explainer-mcp
+cd explain-changes-mcp
 npm install
 npm run build
 ```
@@ -54,7 +54,7 @@ npm run build
 ### Claude Code
 
 ```bash
-claude mcp add code-explainer node /path/to/code-explainer-mcp/dist/index.js
+claude mcp add explain-changes node /path/to/explain-changes-mcp/dist/index.js
 ```
 
 Or add to `~/.claude/mcp_settings.json`:
@@ -62,9 +62,9 @@ Or add to `~/.claude/mcp_settings.json`:
 ```json
 {
   "mcpServers": {
-    "code-explainer": {
+    "explain-changes": {
       "command": "node",
-      "args": ["/path/to/code-explainer-mcp/dist/index.js"]
+      "args": ["/path/to/explain-changes-mcp/dist/index.js"]
     }
   }
 }
@@ -77,9 +77,9 @@ Add to Cursor MCP settings:
 ```json
 {
   "mcpServers": {
-    "code-explainer": {
+    "explain-changes": {
       "command": "node",
-      "args": ["/path/to/code-explainer-mcp/dist/index.js"]
+      "args": ["/path/to/explain-changes-mcp/dist/index.js"]
     }
   }
 }
