@@ -58,12 +58,36 @@ index 1234567..89abcde 100644
         'Extracts the JWT from the Authorization header, expecting "Bearer <token>" format.',
       actions: [
         {
-          label: "Explain JWT",
-          prompt: "Explain how JWT authentication works in detail",
+          label: "Add token format validation",
+          prompt: `Add validation to check the token format before attempting to verify.
+
+Current code in src/middleware/auth.ts:5-6:
+\`\`\`typescript
+const token = req.headers.authorization?.split(' ')[1];
+
+if (!token) {
+  return res.status(401).json({ error: 'No token provided' });
+}
+\`\`\`
+
+The code assumes Bearer format but doesn't validate it. Add a check for:
+1. Header starts with "Bearer "
+2. Token is not empty after split
+3. Return 400 Bad Request for malformed headers vs 401 for missing auth`,
         },
         {
-          label: "Add Expiration",
-          prompt: "Update the token generation to include an expiration time",
+          label: "Extract to getTokenFromHeader",
+          prompt: `Extract token extraction into a reusable function.
+
+Current code in src/middleware/auth.ts:5:
+\`\`\`typescript
+const token = req.headers.authorization?.split(' ')[1];
+\`\`\`
+
+Create a separate function that:
+1. Handles both "Bearer" and "bearer" (case-insensitive)
+2. Returns null for invalid formats
+3. Can be reused in WebSocket upgrade handlers`,
         },
       ],
     },
@@ -72,24 +96,90 @@ index 1234567..89abcde 100644
       line: 12,
       explanation:
         "Verifies the token using JWT_SECRET from environment. On success, decoded payload is attached to req.user.",
+      actions: [
+        {
+          label: "Add type for decoded payload",
+          prompt: `Add TypeScript type for the decoded JWT payload.
+
+Current code in src/middleware/auth.ts:12-13:
+\`\`\`typescript
+const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+req.user = decoded;
+\`\`\`
+
+The decoded payload is untyped. Create a JwtPayload interface with expected fields (userId, email, role, etc.) and cast the result:
+\`\`\`typescript
+interface JwtPayload {
+  userId: string;
+  email: string;
+  iat: number;
+  exp: number;
+}
+const decoded = jwt.verify(token, secret) as JwtPayload;
+\`\`\``,
+        },
+      ],
     },
     {
       file: "src/routes/api.ts",
       line: 6,
       explanation:
         "Applies authMiddleware to all routes on this router. Requests without valid tokens will get 401 before reaching handlers.",
+      actions: [
+        {
+          label: "Add public routes bypass",
+          prompt: `Some routes might need to be public. Add a way to skip auth for specific paths.
+
+Current code in src/routes/api.ts:6:
+\`\`\`typescript
+router.use(authMiddleware);
+\`\`\`
+
+Consider either:
+1. Apply auth to specific routes instead of globally
+2. Create a whitelist of public paths in the middleware
+3. Use a wrapper: \`router.use(authMiddleware.unless({ path: ['/health', '/docs'] }))\``,
+        },
+      ],
     },
   ],
   editor: "cursor",
   globalActions: [
     {
-      label: "Generate Tests",
-      prompt: "Create comprehensive unit tests for the auth middleware using Jest",
+      label: "Add error handling tests",
+      prompt: `Add unit tests covering error scenarios for the auth middleware.
+
+Files to test: src/middleware/auth.ts
+
+Test cases needed:
+1. Missing Authorization header → 401
+2. Malformed header (no "Bearer" prefix) → 401
+3. Invalid/expired token → 401
+4. Valid token → next() called with req.user set
+5. JWT_SECRET not set → appropriate error
+
+Use Jest with supertest for HTTP testing.`,
     },
     {
-      label: "Security Review",
-      prompt:
-        "Review this code for potential security vulnerabilities, specifically regarding JWT handling",
+      label: "Consistent error response format",
+      prompt: `Standardize error responses across the new middleware.
+
+Current responses vary:
+- auth.ts:8: \`{ error: 'No token provided' }\`
+- auth.ts:16: \`{ error: 'Invalid token' }\`
+
+Create a consistent error format:
+\`\`\`typescript
+{
+  success: false,
+  error: {
+    code: 'AUTH_TOKEN_MISSING',
+    message: 'No token provided'
+  }
+}
+\`\`\`
+
+Apply this format to all error responses in the new files.`,
     },
   ],
 };

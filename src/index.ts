@@ -69,12 +69,41 @@ const EXPLAIN_CHANGES_PROMPT = `Explain the code changes visually using git diff
    - \`title\`: Descriptive title
    - \`summary\`: 1-2 sentence overview
    - \`diff\`: The raw git diff output (full unified diff format)
-   - \`annotations\`: Array of { file, line, explanation, actions? } for key changes.
-      - \`actions\`: Optional array of { label, prompt } to provide quick follow-up tasks in Cursor.
-   - \`globalActions\`: Optional array of { label, prompt } for project-wide tasks.
+   - \`annotations\`: Array of { file, line, explanation, actions? } for key changes
+   - \`globalActions\`: Optional array of { label, prompt } for project-wide review actions
    - \`editor\`: Your IDE ("vscode" or "cursor")
 
-4. Write annotations that explain WHAT the code does based on the code itself and conversation context. Don't fabricate intent or reasons you can't know.`;
+4. Write annotations that explain WHAT the code does based on the code itself and conversation context. Don't fabricate intent or reasons you can't know.
+
+## Reviewer Actions
+
+For each annotation, think about what a code reviewer might want to change or improve. Generate specific, actionable suggestions:
+
+**Good actions (specific, contextual):**
+- "Extract to useAuth hook" → prompt includes the code and explains the refactor
+- "Use early return pattern" → prompt shows current nested code and suggested structure
+- "Add input validation" → prompt specifies what validation is missing
+- "Rename to fetchUserData" → prompt explains why the new name is clearer
+
+**Bad actions (generic, unhelpful):**
+- "Refactor this" (too vague)
+- "Add tests" (no context)
+- "Improve code" (meaningless)
+
+Each action's prompt MUST include:
+1. The specific change being suggested
+2. The relevant code snippet with file path and line numbers
+3. Why this change would improve the code
+
+Example action:
+\`\`\`json
+{
+  "label": "Extract validation logic",
+  "prompt": "Extract the token validation into a separate validateToken function for reusability.\\n\\nCurrent code in src/middleware/auth.ts:10-16:\\n\\\`\\\`\\\`typescript\\nif (!token) {\\n  return res.status(401).json({ error: 'No token' });\\n}\\nconst decoded = jwt.verify(token, secret);\\n\\\`\\\`\\\`\\n\\nThis would allow reusing validation in WebSocket handlers."
+}
+\`\`\`
+
+Global actions should address project-wide concerns like "Add integration tests for all new endpoints" or "Review error handling consistency across files".`;
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -124,17 +153,17 @@ The tool will:
                   },
                   actions: {
                     type: "array",
-                    description: "Actions that can be performed on this annotation",
+                    description: "Reviewer actions - specific suggestions for improvements. Each action should be contextual (e.g., 'Extract to useAuth hook', 'Add input validation') not generic (e.g., 'Refactor', 'Improve').",
                     items: {
                       type: "object",
                       properties: {
                         label: {
                           type: "string",
-                          description: "Label for the action button",
+                          description: "Short, specific action label (e.g., 'Extract to helper', 'Add null check', 'Rename to fetchUser')",
                         },
                         prompt: {
                           type: "string",
-                          description: "The prompt to pre-fill in Cursor",
+                          description: "Full context for the action: what to change, the relevant code snippet with file:line, and why this improves the code",
                         },
                       },
                       required: ["label", "prompt"],
@@ -151,17 +180,17 @@ The tool will:
             },
             globalActions: {
               type: "array",
-              description: "Global actions that can be performed on the diff",
+              description: "Project-wide reviewer actions (e.g., 'Add integration tests for new endpoints', 'Standardize error responses')",
               items: {
                 type: "object",
                 properties: {
                   label: {
                     type: "string",
-                    description: "Label for the action button",
+                    description: "Short, specific action label for project-wide improvement",
                   },
                   prompt: {
                     type: "string",
-                    description: "The prompt to pre-fill in Cursor",
+                    description: "Full context: what to change across files, which files are affected, and why",
                   },
                 },
                 required: ["label", "prompt"],
