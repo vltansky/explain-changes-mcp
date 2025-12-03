@@ -11,12 +11,72 @@ import {
 import { generateHTML } from "./html-generator.js";
 import { tmpdir } from "os";
 import { join } from "path";
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
+import { createServer, Server as HttpServer } from "http";
 
 const open = async (url: string) => {
   const mod = await import("open");
   return mod.default(url);
 };
+
+// Simple HTTP server to serve generated HTML files
+let httpServer: HttpServer | null = null;
+let currentHtmlContent: string = "";
+let serverPort = 54321;
+let serverTimeout: NodeJS.Timeout | null = null;
+const SERVER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+function stopServer() {
+  if (serverTimeout) {
+    clearTimeout(serverTimeout);
+    serverTimeout = null;
+  }
+  if (httpServer) {
+    httpServer.close();
+    httpServer = null;
+  }
+}
+
+function resetServerTimeout() {
+  if (serverTimeout) {
+    clearTimeout(serverTimeout);
+  }
+  serverTimeout = setTimeout(() => {
+    stopServer();
+  }, SERVER_TIMEOUT_MS);
+}
+
+function startServer(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    if (httpServer) {
+      resetServerTimeout();
+      resolve(serverPort);
+      return;
+    }
+
+    httpServer = createServer((req, res) => {
+      resetServerTimeout(); // Reset timeout on each request
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(currentHtmlContent);
+    });
+
+    httpServer.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        serverPort++;
+        httpServer?.close();
+        httpServer = null;
+        startServer().then(resolve).catch(reject);
+      } else {
+        reject(err);
+      }
+    });
+
+    httpServer.listen(serverPort, "127.0.0.1", () => {
+      resetServerTimeout();
+      resolve(serverPort);
+    });
+  });
+}
 
 type Editor = "vscode" | "cursor" | "auto";
 
@@ -38,7 +98,6 @@ type ShowDiffExplanationArgs = {
   diff: string;
   annotations?: Annotation[];
   editor?: Editor;
-  globalActions?: Action[];
 };
 
 const server = new Server(
@@ -68,9 +127,8 @@ const EXPLAIN_CHANGES_PROMPT = `Explain the code changes visually using git diff
 3. Call \`show_diff_explanation\` with:
    - \`title\`: Descriptive title
    - \`summary\`: 1-2 sentence overview
-   - \`diff\`: The raw git diff output (full unified diff format)
+   - \`diff\`: The ACTUAL diff content as a string (not a file path or shell command like \`$(cat file)\` - pass the real diff text)
    - \`annotations\`: Array of { file, line, explanation, actions? } for key changes
-   - \`globalActions\`: Optional array of { label, prompt } for project-wide review actions
    - \`editor\`: Your IDE ("vscode" or "cursor")
 
 4. Write annotations that explain WHAT the code does based on the code itself and conversation context. Don't fabricate intent or reasons you can't know.
@@ -103,7 +161,7 @@ Example action:
 }
 \`\`\`
 
-Global actions should address project-wide concerns like "Add integration tests for all new endpoints" or "Review error handling consistency across files".`;
+Each annotation can have multiple actions if there are several ways to improve that specific piece of code.`;
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -131,7 +189,7 @@ The tool will:
             },
             diff: {
               type: "string",
-              description: "The raw git diff output (unified diff format). Get this from `git diff` commands.",
+              description: "The raw git diff output as a string (unified diff format). IMPORTANT: Pass the actual diff content, not a file path or shell command. Get the content from `git diff` commands and include it directly.",
             },
             annotations: {
               type: "array",
@@ -177,24 +235,6 @@ The tool will:
               type: "string",
               enum: ["vscode", "cursor", "auto"],
               description: "Which editor to show 'Open in' button for",
-            },
-            globalActions: {
-              type: "array",
-              description: "Project-wide reviewer actions (e.g., 'Add integration tests for new endpoints', 'Standardize error responses')",
-              items: {
-                type: "object",
-                properties: {
-                  label: {
-                    type: "string",
-                    description: "Short, specific action label for project-wide improvement",
-                  },
-                  prompt: {
-                    type: "string",
-                    description: "Full context: what to change across files, which files are affected, and why",
-                  },
-                },
-                required: ["label", "prompt"],
-              },
             },
           },
           required: ["title", "diff"],
@@ -251,14 +291,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
+    // Detect if diff looks like a shell command instead of actual diff content
+    const shellPatterns = [
+      /^\$\(.*\)$/,           // $(cat file)
+      /^`.*`$/,               // `cat file`
+      /^cat\s+/,              // cat /path/to/file
+      /^<\s*\//,              // < /path/to/file
+    ];
+
+    const looksLikeShellCommand = shellPatterns.some(p => p.test(args.diff.trim()));
+    const looksLikeDiff = args.diff.includes('diff --git') ||
+                          args.diff.includes('@@') ||
+                          args.diff.includes('---') ||
+                          args.diff.includes('+++');
+
+    if (looksLikeShellCommand && !looksLikeDiff) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Error: The 'diff' parameter contains a shell command ("${args.diff.substring(0, 50)}...") instead of actual diff content.\n\nPlease pass the actual diff output as a string. Run the git diff command and include its output directly in the 'diff' parameter.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
     const html = generateHTML(
       args.title,
       args.summary,
       args.diff,
       args.annotations || [],
       args.editor || "auto",
-      "side-by-side",
-      args.globalActions
+      "side-by-side"
     );
 
     const timestamp = Date.now();
@@ -270,21 +335,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const annotationCount = args.annotations?.length || 0;
     const editor = (args.editor || "auto").toLowerCase();
 
-    // Check if editor is cursor - don't open browser directly
+    // Check if editor is cursor - serve via HTTP for browser_navigate
     if (editor === "cursor") {
-      // Format file:// URL properly for Unix systems (needs three slashes: file:///)
-      const fileUrl = `file:///${filepath}`;
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: `Generated diff explanation${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.\nFile: ${filepath}\n\nPlease use the browser_navigate MCP tool to open this URL in Cursor browser:\n${fileUrl}`,
-          },
-        ],
-      };
+      try {
+        currentHtmlContent = html;
+        const port = await startServer();
+        const httpUrl = `http://127.0.0.1:${port}`;
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Generated diff explanation${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.\n\nIMPORTANT: Use the browser_navigate tool (from cursor-ide-browser MCP) to open this URL in Cursor's browser:\n${httpUrl}`,
+            },
+          ],
+        };
+      } catch (err) {
+        // Fallback to file if server fails
+        await open(filepath);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Opened diff explanation in browser${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.\nFile: ${filepath}`,
+            },
+          ],
+        };
+      }
     }
 
-    // Only open browser if editor is not cursor
+    // Open in system default browser for other editors
     await open(filepath);
 
     return {

@@ -144,44 +144,6 @@ Consider either:
     },
   ],
   editor: "cursor",
-  globalActions: [
-    {
-      label: "Add error handling tests",
-      prompt: `Add unit tests covering error scenarios for the auth middleware.
-
-Files to test: src/middleware/auth.ts
-
-Test cases needed:
-1. Missing Authorization header → 401
-2. Malformed header (no "Bearer" prefix) → 401
-3. Invalid/expired token → 401
-4. Valid token → next() called with req.user set
-5. JWT_SECRET not set → appropriate error
-
-Use Jest with supertest for HTTP testing.`,
-    },
-    {
-      label: "Consistent error response format",
-      prompt: `Standardize error responses across the new middleware.
-
-Current responses vary:
-- auth.ts:8: \`{ error: 'No token provided' }\`
-- auth.ts:16: \`{ error: 'Invalid token' }\`
-
-Create a consistent error format:
-\`\`\`typescript
-{
-  success: false,
-  error: {
-    code: 'AUTH_TOKEN_MISSING',
-    message: 'No token provided'
-  }
-}
-\`\`\`
-
-Apply this format to all error responses in the new files.`,
-    },
-  ],
 };
 
 // Track connected clients for live reload
@@ -218,8 +180,7 @@ const server = createServer(async (req, res) => {
       mockData.diff,
       mockData.annotations,
       mockData.editor,
-      "side-by-side",
-      mockData.globalActions
+      "side-by-side"
     );
 
     // Inject live reload script

@@ -2,9 +2,9 @@
 
 # Explain Changes MCP
 
-**The new way to review AI-generated code.**
+**AI peer review for your code changes.**
 
-Get inline explanations that appear directly in your diff. No more jumping between the chat and your code to understand what changed.
+Just like humans review each other's PRs, your AI reviews its own changes — with inline annotations that appear directly in the diff.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -12,34 +12,38 @@ Get inline explanations that appear directly in your diff. No more jumping betwe
 
 ---
 
-## The Problem
+## Why AI Peer Review?
 
-Code review has become one of the biggest bottlenecks in AI-assisted development. AI agents can generate multi-file changes in seconds, but **understanding what was done still takes time**.
+When humans write code, we do peer review. When AI writes code, we... scroll through chat hoping we understood what it did?
 
-You end up jumping between:
-- The chat (where AI explained what it did)
-- The diff (where the actual changes are)
-- Your mental model (trying to connect the two)
+**The asymmetry is broken.** AI generates multi-file changes in seconds, but understanding those changes still requires you to:
+- Read the chat explanation
+- Open the diff
+- Mentally map one to the other
 
-## The Solution
+This MCP gives AI the same workflow humans use: **review the diff, annotate the changes, explain the reasoning**.
 
-After your AI completes a task, it calls this MCP to generate a visual diff with **inline annotations that appear directly next to the code**. The explanations live where they belong — in the diff itself.
+---
+
+## How It Works
 
 ```
-AI makes changes → AI calls show_diff_explanation → Browser opens with annotated diff
+AI makes changes → AI reviews its own diff → Browser opens with annotated diff
 ```
 
-Works on any git diff: commits, PRs, branches. Ask follow-up questions right from the action buttons.
+The AI calls `show_diff_explanation` after completing a task. You get a visual diff with inline annotations — exactly where a human reviewer would leave comments.
+
+Works on any git diff: commits, PRs, branches. Action buttons let you ask follow-up questions right from the review.
 
 ---
 
 ## Features
 
-- **Visual diff** - Side-by-side or unified view powered by diff2html
-- **Inline annotations** - AI explanations appear directly after relevant code lines
-- **Action buttons** - Follow-up prompts (e.g., "Add tests", "Refactor this")
-- **Click to open** - File names link to VS Code or Cursor
-- **GitHub dark theme** - Clean aesthetics
+- **Visual diff** — Side-by-side or unified view powered by diff2html
+- **Inline annotations** — Review comments appear directly after relevant code lines
+- **Action buttons** — Follow-up prompts ("Add tests", "Refactor this", "Security review")
+- **Click to open** — File names link to VS Code or Cursor
+- **GitHub dark theme** — Clean aesthetics
 
 ---
 
@@ -168,7 +172,7 @@ Follow the [MCP install guide](https://modelcontextprotocol.io/quickstart/user),
 
 ## Tool: `show_diff_explanation`
 
-Renders a git diff with annotations in the browser.
+Renders a git diff with review annotations in the browser.
 
 ### Parameters
 
@@ -176,8 +180,8 @@ Renders a git diff with annotations in the browser.
 |-----------|------|----------|-------------|
 | `title` | string | Yes | Page title |
 | `diff` | string | Yes | Raw git diff output (unified format) |
-| `summary` | string | No | High-level overview |
-| `annotations` | array | No | Explanations for specific changes |
+| `summary` | string | No | High-level overview of changes |
+| `annotations` | array | No | Review comments for specific changes |
 | `globalActions` | array | No | Action buttons in the header |
 | `editor` | string | No | `"vscode"`, `"cursor"`, or `"auto"` |
 
@@ -186,8 +190,8 @@ Renders a git diff with annotations in the browser.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `file` | string | Yes | File path |
-| `line` | number | No | Line number to attach annotation to |
-| `explanation` | string | Yes | Your explanation |
+| `line` | number | No | Line number to attach comment to |
+| `explanation` | string | Yes | Review comment |
 | `actions` | array | No | Array of `{ label, prompt }` for action buttons |
 
 ### Action Object
@@ -202,7 +206,7 @@ Renders a git diff with annotations in the browser.
 ## MCP Prompt
 
 ### `explain-changes`
-Instructions for explaining git diffs with visual output. The AI will get the diff, analyze the changes, and call the tool with appropriate annotations.
+Instructions for reviewing git diffs with visual output. The AI will get the diff, review the changes, and call the tool with appropriate annotations.
 
 ---
 
@@ -212,7 +216,7 @@ Ask your AI agent: **"Explain the last commit"**
 
 The agent will:
 1. Run `git diff HEAD~1 HEAD`
-2. Analyze the changes
+2. Review the changes
 3. Call `show_diff_explanation`:
 
 ```json
@@ -237,7 +241,7 @@ The agent will:
 }
 ```
 
-4. Browser opens with diff2html rendered diff + inline annotations
+4. Browser opens with diff2html rendered diff + inline review comments
 
 ---
 
