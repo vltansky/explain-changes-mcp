@@ -45,50 +45,128 @@ Works on any git diff: commits, PRs, branches. Ask follow-up questions right fro
 
 ## Installation
 
+### Prerequisites
+
+- **Node.js** >= 18.0.0
+- **MCP Client** (Cursor, Claude Code, VS Code, Windsurf, etc.)
+
+### Quick Start
+
+Install via npx (recommended):
+
 ```bash
-git clone <repo>
-cd explain-changes-mcp
-npm install
-npm run build
+npx explain-changes-mcp@latest
 ```
+
+Then configure your client below.
 
 ---
 
-## Configuration
+### Client-Specific Setup
 
-### Claude Code
+<details>
+<summary><b>Cursor</b></summary>
+
+#### One-Click Install
+
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=explain-changes-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImV4cGxhaW4tY2hhbmdlcy1tY3BAbGF0ZXN0Il19)
+
+#### Manual Install
+
+Go to `Cursor Settings` → `MCP` → `Add new global MCP server`
+
+```json
+{
+  "mcpServers": {
+    "explain-changes-mcp": {
+      "command": "npx",
+      "args": ["-y", "explain-changes-mcp@latest"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+Use the Claude Code CLI:
 
 ```bash
-claude mcp add explain-changes node /path/to/explain-changes-mcp/dist/index.js
+claude mcp add explain-changes-mcp npx -y explain-changes-mcp@latest
 ```
 
-Or add to `~/.claude/mcp_settings.json`:
+Or manually edit `~/.claude/config.json`:
 
 ```json
 {
   "mcpServers": {
-    "explain-changes": {
-      "command": "node",
-      "args": ["/path/to/explain-changes-mcp/dist/index.js"]
+    "explain-changes-mcp": {
+      "command": "npx",
+      "args": ["-y", "explain-changes-mcp@latest"]
     }
   }
 }
 ```
 
-### Cursor
+</details>
 
-Add to Cursor MCP settings:
+<details>
+<summary><b>VS Code / VS Code Insiders</b></summary>
+
+[<img src="https://img.shields.io/badge/Install%20in%20VS%20Code-0098FF?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22explain-changes-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22explain-changes-mcp%40latest%22%5D%7D)
+
+Or add to `settings.json`:
 
 ```json
 {
-  "mcpServers": {
-    "explain-changes": {
-      "command": "node",
-      "args": ["/path/to/explain-changes-mcp/dist/index.js"]
+  "mcp.servers": {
+    "explain-changes-mcp": {
+      "command": "npx",
+      "args": ["-y", "explain-changes-mcp@latest"]
     }
   }
 }
 ```
+
+</details>
+
+<details>
+<summary><b>Windsurf</b></summary>
+
+Add to your Windsurf MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "explain-changes-mcp": {
+      "command": "npx",
+      "args": ["-y", "explain-changes-mcp@latest"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Claude Desktop</b></summary>
+
+Follow the [MCP install guide](https://modelcontextprotocol.io/quickstart/user), then add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "explain-changes-mcp": {
+      "command": "npx",
+      "args": ["-y", "explain-changes-mcp@latest"]
+    }
+  }
+}
+```
+
+</details>
 
 ---
 
