@@ -52,13 +52,9 @@ Works on any git diff: commits, PRs, branches. Ask follow-up questions right fro
 
 ### Quick Start
 
-Install via npx (recommended):
+**1. Install the MCP Server**
 
-```bash
-npx explain-changes-mcp@latest
-```
-
-Then configure your client below.
+The MCP server runs via `npx`. Configure it in your MCP client (see [Client-Specific Setup](#client-specific-setup) below).
 
 ---
 
