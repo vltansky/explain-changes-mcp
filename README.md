@@ -8,6 +8,8 @@ Just like humans review each other's PRs, your AI reviews its own changes — wi
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
+![Screenshot](assets/screenshot.png)
+
 </div>
 
 ---
@@ -61,16 +63,13 @@ Download the `.vsix` from [releases](https://github.com/vltansky/explain-changes
 
 ### 2. Use with AI
 
-In Cursor chat, ask the AI to explain your changes:
+In Cursor chat, use the slash command:
 
 ```
-Explain my recent changes using the explain-changes tool
+/explain-changes
 ```
 
-Or reference the MCP prompt for detailed instructions:
-```
-@explain-changes
-```
+This triggers the MCP prompt which guides the AI to analyze your changes and call the tool automatically.
 
 ---
 

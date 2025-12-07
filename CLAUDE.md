@@ -2,28 +2,56 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Structure
+
+Monorepo with two packages:
+- `packages/mcp` - MCP server that provides the `show_diff_explanation` tool
+- `packages/extension` - VS Code/Cursor extension that displays diff explanations in a webview panel
+
 ## Commands
 
 ```bash
-npm run build      # Compile TypeScript to dist/
-npm run dev        # Start dev server with hot reload at http://localhost:3456
-npm run start      # Run the MCP server (for production use via stdio)
+# Root commands
+npm run build            # Build all packages
+npm run build:mcp        # Build MCP server only
+npm run build:extension  # Build extension only
+
+# Extension (from packages/extension)
+npm run dev              # Dev server at http://localhost:3457 for webview debugging
+npm run watch            # Watch mode for extension development
+npm run package          # Create .vsix file
+
+# MCP (from packages/mcp)
+npm run build            # Compile TypeScript to dist/
+npm run start            # Run MCP server via stdio
 ```
 
 ## Architecture
 
-This is an MCP (Model Context Protocol) server that renders git diffs with AI annotations as HTML pages.
-
-### Flow
 ```
-AI Agent → calls show_diff_explanation tool → MCP generates HTML → opens in browser
+MCP Server                    VS Code Extension
+     │                              │
+     │ writes JSON to               │ watches
+     │ ~/.explain-changes/          │ ~/.explain-changes/
+     │ pending.json                 │ pending.json
+     │                              │
+     └──────────────────────────────┘
+                                    │
+                                    ▼
+                              Webview Panel
+                              (renders diff + annotations)
 ```
 
-### Key Files
+### MCP Package (`packages/mcp`)
 
-- `src/index.ts` - MCP server entry point. Handles tool registration, prompts, and tool execution. Writes HTML to temp file and opens in browser.
-- `src/html-generator.ts` - Generates the HTML page. Uses diff2html library for rendering, GitHub dark theme styling, and injects annotations inline after relevant code lines.
-- `dev/server.mjs` - Development server with live reload. Watches `src/` for changes, rebuilds, and triggers browser refresh via SSE.
+- `src/index.ts` - MCP server entry point. Registers tool and prompt, writes JSON to `~/.explain-changes/pending.json`
+
+### Extension Package (`packages/extension`)
+
+- `src/extension.ts` - Extension entry point. Watches pending.json, auto-configures MCP in Cursor/Windsurf
+- `src/webviewProvider.ts` - Creates webview panel, renders diff with diff2html, handles button clicks
+- `src/types.ts` - Shared TypeScript types
+- `dev/server.mjs` - Dev server for debugging webview in browser with mock data and HMR
 
 ### Tool Schema
 
@@ -32,19 +60,22 @@ The `show_diff_explanation` tool accepts:
 - `diff` (required): Raw git diff output (unified format)
 - `summary`: High-level overview
 - `annotations`: Array of `{ file, line?, explanation, actions? }`
-- `globalActions`: Array of `{ label, prompt }` for header action buttons
-- `editor`: `"vscode"` | `"cursor"` | `"auto"`
+- `workspacePath`: Absolute path to project (for workspace filtering)
+- `editor`: `"cursor"` | `"vscode"`
 
-Actions use Cursor deeplinks (`cursor://chat?text=...`) to pre-fill prompts.
+### Action Buttons
 
-### HTML Generation
+Actions use Cursor deeplinks: `cursor://anysphere.cursor-deeplink/prompt?text=...`
 
-The `generateHTML` function:
-1. Renders diff using diff2html with dark theme overrides
-2. Inserts annotation rows after matching line numbers via DOM manipulation
-3. Makes file names clickable links to open in editor (vscode:// or cursor:// schemes)
-4. Supports unified and side-by-side view toggle
+The extension receives button clicks via `postMessage`, then calls `vscode.env.openExternal()` to open the deeplink.
 
 ### Development
 
-Edit `dev/server.mjs` to change mock data for testing different scenarios. The dev server auto-rebuilds on `.ts` file changes and uses SSE to trigger browser reload.
+1. **Webview debugging**: Run `npm run dev` in `packages/extension` to test the panel UI in browser
+2. **Extension debugging**: Use VS Code's "Run and Debug" or reload window after `npm run build`
+3. **MCP testing**: Configure in Cursor's `~/.cursor/mcp.json` and call the tool from chat
+
+### Publishing
+
+- **Extension**: Create `.vsix` with `npm run package`, upload to GitHub Releases
+- **MCP**: Published to npm as `explain-changes-mcp`
