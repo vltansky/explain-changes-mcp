@@ -8,77 +8,15 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { generateHTML } from "./html-generator.js";
-import { tmpdir } from "os";
+import { homedir } from "os";
 import { join } from "path";
-import { writeFileSync, readFileSync } from "fs";
-import { createServer, Server as HttpServer } from "http";
+import { writeFileSync, existsSync, mkdirSync } from "fs";
 
-const open = async (url: string) => {
-  const mod = await import("open");
-  return mod.default(url);
-};
+// VS Code extension integration
+const WATCH_DIR = join(homedir(), ".explain-changes");
+const WATCH_FILE = join(WATCH_DIR, "pending.json");
 
-// Simple HTTP server to serve generated HTML files
-let httpServer: HttpServer | null = null;
-let currentHtmlContent: string = "";
-let serverPort = 54321;
-let serverTimeout: NodeJS.Timeout | null = null;
-const SERVER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-
-function stopServer() {
-  if (serverTimeout) {
-    clearTimeout(serverTimeout);
-    serverTimeout = null;
-  }
-  if (httpServer) {
-    httpServer.close();
-    httpServer = null;
-  }
-}
-
-function resetServerTimeout() {
-  if (serverTimeout) {
-    clearTimeout(serverTimeout);
-  }
-  serverTimeout = setTimeout(() => {
-    stopServer();
-  }, SERVER_TIMEOUT_MS);
-}
-
-function startServer(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    if (httpServer) {
-      resetServerTimeout();
-      resolve(serverPort);
-      return;
-    }
-
-    httpServer = createServer((req, res) => {
-      resetServerTimeout(); // Reset timeout on each request
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(currentHtmlContent);
-    });
-
-    httpServer.on("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "EADDRINUSE") {
-        serverPort++;
-        httpServer?.close();
-        httpServer = null;
-        startServer().then(resolve).catch(reject);
-      } else {
-        reject(err);
-      }
-    });
-
-    httpServer.listen(serverPort, "127.0.0.1", () => {
-      resetServerTimeout();
-      resolve(serverPort);
-    });
-  });
-}
-
-type Editor = "vscode" | "cursor" | "auto";
+type Editor = "vscode" | "cursor";
 
 type Action = {
   label: string;
@@ -92,13 +30,31 @@ type Annotation = {
   actions?: Action[];
 };
 
+type DiffExplanationData = {
+  title: string;
+  summary?: string;
+  diff: string;
+  annotations: Annotation[];
+  editor: Editor;
+  workspacePath?: string;
+  timestamp: number;
+};
+
 type ShowDiffExplanationArgs = {
   title: string;
   summary?: string;
   diff: string;
   annotations?: Annotation[];
   editor?: Editor;
+  workspacePath?: string;
 };
+
+function writeToExtension(data: DiffExplanationData): void {
+  if (!existsSync(WATCH_DIR)) {
+    mkdirSync(WATCH_DIR, { recursive: true });
+  }
+  writeFileSync(WATCH_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
 
 const server = new Server(
   {
@@ -113,25 +69,25 @@ const server = new Server(
   }
 );
 
-const EXPLAIN_CHANGES_PROMPT = `Explain the code changes visually using git diff.
+const EXPLAIN_CHANGES_PROMPT = `Explain code changes visually using the Explain Changes extension.
 
 ## Instructions
 
-1. Get the diff using git:
+1. **Get the diff** - Use what you already have from the conversation context. Only run \`git diff\` if you don't have the changes:
    - Last commit: \`git diff HEAD~1 HEAD\`
    - Staged: \`git diff --cached\`
    - Working dir: \`git diff\`
 
-2. Analyze the changes and prepare annotations for key parts
+2. **Analyze and annotate** - Prepare explanations for key parts of the changes
 
-3. Call \`show_diff_explanation\` with:
+3. **Call \`show_diff_explanation\`** with:
    - \`title\`: Descriptive title
    - \`summary\`: 1-2 sentence overview
-   - \`diff\`: The ACTUAL diff content as a string (not a file path or shell command like \`$(cat file)\` - pass the real diff text)
+   - \`diff\`: The diff content as a string (the actual text, not a shell command)
    - \`annotations\`: Array of { file, line, explanation, actions? } for key changes
-   - \`editor\`: Your IDE ("vscode" or "cursor")
+   - \`workspacePath\`: The absolute path to the current project folder (use \`pwd\` or equivalent)
 
-4. Write annotations that explain WHAT the code does based on the code itself and conversation context. Don't fabricate intent or reasons you can't know.
+4. **Write factual annotations** - Explain WHAT the code does based on the code itself. Don't fabricate intent.
 
 ## Reviewer Actions
 
@@ -168,20 +124,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "show_diff_explanation",
-        description: `Opens a beautiful HTML page showing a git diff with annotations.
+        description: `Shows a git diff with annotations in the Explain Changes extension panel.
 
 Use this tool after analyzing code changes to present the diff visually with your explanations.
 
 The tool will:
-1. Render the git diff with syntax highlighting (side-by-side or line-by-line)
-2. Display your annotations alongside relevant lines
-3. Open the page in the user's default browser with "Open in Editor" buttons`,
+1. Send the diff and annotations to the VS Code/Cursor extension
+2. Open a panel with syntax-highlighted diff (side-by-side or unified view)
+3. Display your annotations inline with action buttons`,
         inputSchema: {
           type: "object" as const,
           properties: {
             title: {
               type: "string",
-              description: "Title for the page (e.g., 'Changes in PR #123')",
+              description: "Title for the explanation (e.g., 'Add user authentication')",
             },
             summary: {
               type: "string",
@@ -189,7 +145,7 @@ The tool will:
             },
             diff: {
               type: "string",
-              description: "The raw git diff output as a string (unified diff format). IMPORTANT: Pass the actual diff content, not a file path or shell command. Get the content from `git diff` commands and include it directly.",
+              description: "The raw git diff output as a string (unified diff format). IMPORTANT: Pass the actual diff content, not a file path or shell command.",
             },
             annotations: {
               type: "array",
@@ -211,17 +167,17 @@ The tool will:
                   },
                   actions: {
                     type: "array",
-                    description: "Reviewer actions - specific suggestions for improvements. Each action should be contextual (e.g., 'Extract to useAuth hook', 'Add input validation') not generic (e.g., 'Refactor', 'Improve').",
+                    description: "Reviewer actions - specific suggestions for improvements",
                     items: {
                       type: "object",
                       properties: {
                         label: {
                           type: "string",
-                          description: "Short, specific action label (e.g., 'Extract to helper', 'Add null check', 'Rename to fetchUser')",
+                          description: "Short action label (e.g., 'Extract to helper')",
                         },
                         prompt: {
                           type: "string",
-                          description: "Full context for the action: what to change, the relevant code snippet with file:line, and why this improves the code",
+                          description: "Full context: what to change, code snippet, and why",
                         },
                       },
                       required: ["label", "prompt"],
@@ -233,8 +189,12 @@ The tool will:
             },
             editor: {
               type: "string",
-              enum: ["vscode", "cursor", "auto"],
-              description: "Which editor to show 'Open in' button for",
+              enum: ["vscode", "cursor"],
+              description: "Which editor you're using",
+            },
+            workspacePath: {
+              type: "string",
+              description: "Absolute path to the workspace/project folder. Used to show the panel only in the correct editor window.",
             },
           },
           required: ["title", "diff"],
@@ -249,7 +209,7 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
     prompts: [
       {
         name: "explain-changes",
-        description: "Instructions for explaining code changes (git diff) with visual HTML output",
+        description: "Instructions for explaining code changes with the Explain Changes extension",
       },
     ],
   };
@@ -317,60 +277,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    const html = generateHTML(
-      args.title,
-      args.summary,
-      args.diff,
-      args.annotations || [],
-      args.editor || "auto",
-      "side-by-side"
-    );
-
     const timestamp = Date.now();
-    const filename = `diff-explanation-${timestamp}.html`;
-    const filepath = join(tmpdir(), filename);
-
-    writeFileSync(filepath, html, "utf-8");
-
     const annotationCount = args.annotations?.length || 0;
-    const editor = (args.editor || "auto").toLowerCase();
+    const editor = (args.editor || "cursor") as Editor;
 
-    // Check if editor is cursor - serve via HTTP for browser_navigate
-    if (editor === "cursor") {
-      try {
-        currentHtmlContent = html;
-        const port = await startServer();
-        const httpUrl = `http://127.0.0.1:${port}`;
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Generated diff explanation${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.\n\nIMPORTANT: Use the browser_navigate tool (from cursor-ide-browser MCP) to open this URL in Cursor's browser:\n${httpUrl}`,
-            },
-          ],
-        };
-      } catch (err) {
-        // Fallback to file if server fails
-        await open(filepath);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Opened diff explanation in browser${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.\nFile: ${filepath}`,
-            },
-          ],
-        };
-      }
-    }
+    // Write JSON for the extension
+    const extensionData: DiffExplanationData = {
+      title: args.title,
+      summary: args.summary,
+      diff: args.diff,
+      annotations: args.annotations || [],
+      editor: editor,
+      workspacePath: args.workspacePath,
+      timestamp,
+    };
+    writeToExtension(extensionData);
 
-    // Open in system default browser for other editors
-    await open(filepath);
+    // Deep link to open the extension panel
+    const deepLink = `${editor}://explain-changes.explain-changes-extension/show`;
 
     return {
       content: [
         {
           type: "text" as const,
-          text: `Opened diff explanation in browser${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.\nFile: ${filepath}`,
+          text: `Diff explanation ready${annotationCount > 0 ? ` with ${annotationCount} annotation${annotationCount === 1 ? "" : "s"}` : ""}.
+
+The panel should open automatically. If not, run "Explain Changes: Show Panel" from the command palette.
+
+Deep link: ${deepLink}`,
         },
       ],
     };

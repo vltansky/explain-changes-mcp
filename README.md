@@ -1,10 +1,10 @@
 <div align="center">
 
-# Explain Changes MCP
+# Explain Changes
 
 **AI peer review for your code changes.**
 
-Just like humans review each other's PRs, your AI reviews its own changes — with inline annotations that appear directly in the diff.
+Just like humans review each other's PRs, your AI reviews its own changes — with inline annotations that appear directly in a VS Code/Cursor panel.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -21,19 +21,19 @@ When humans write code, we do peer review. When AI writes code, we... scroll thr
 - Open the diff
 - Mentally map one to the other
 
-This MCP gives AI the same workflow humans use: **review the diff, annotate the changes, explain the reasoning**.
+This extension gives AI the same workflow humans use: **review the diff, annotate the changes, explain the reasoning**.
 
 ---
 
 ## How It Works
 
 ```
-AI makes changes → AI reviews its own diff → Browser opens with annotated diff
+AI makes changes → AI reviews its own diff → Panel opens with annotated diff
 ```
 
 The AI calls `show_diff_explanation` after completing a task. You get a visual diff with inline annotations — exactly where a human reviewer would leave comments.
 
-Works on any git diff: commits, PRs, branches. Action buttons let you ask follow-up questions right from the review.
+Action buttons let you send improvement suggestions directly to Cursor chat.
 
 ---
 
@@ -41,108 +41,54 @@ Works on any git diff: commits, PRs, branches. Action buttons let you ask follow
 
 - **Visual diff** — Side-by-side or unified view powered by diff2html
 - **Inline annotations** — Review comments appear directly after relevant code lines
-- **Action buttons** — Follow-up prompts ("Add tests", "Refactor this", "Security review")
-- **Click to open** — File names link to VS Code or Cursor
-- **GitHub dark theme** — Clean aesthetics
+- **Action buttons** — Click to send prompts to Cursor chat ("Refactor this", "Add tests")
+- **Click to open** — File names link directly to the source
+- **Workspace-aware** — Only shows in the window matching your project
+- **Auto-install MCP** — Extension configures the MCP server automatically
 
 ---
 
 ## Installation
 
-### Prerequisites
+### 1. Install the Extension
 
-- **Node.js** >= 18.0.0
-- **MCP Client** (Cursor, Claude Code, VS Code, Windsurf, etc.)
+Download the `.vsix` from [releases](https://github.com/vltansky/explain-changes-mcp/releases) and install:
 
-### Quick Start
+**VS Code / Cursor:**
+- Extensions → `...` → "Install from VSIX..."
 
-**1. Install the MCP Server**
+**The extension automatically configures the MCP server** in Cursor and Windsurf on first activation.
 
-The MCP server runs via `npx`. Configure it in your MCP client (see [Client-Specific Setup](#client-specific-setup) below).
+### 2. Use with AI
+
+In Cursor chat, ask the AI to explain your changes:
+
+```
+Explain my recent changes using the explain-changes tool
+```
+
+Or reference the MCP prompt for detailed instructions:
+```
+@explain-changes
+```
 
 ---
 
-### Client-Specific Setup
+## Manual MCP Configuration
+
+If auto-install doesn't work, configure manually:
 
 <details>
 <summary><b>Cursor</b></summary>
 
-#### One-Click Install
-
-[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=explain-changes-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImV4cGxhaW4tY2hhbmdlcy1tY3BAbGF0ZXN0Il19)
-
-#### Manual Install
-
-Go to `Cursor Settings` → `MCP` → `Add new global MCP server`
+Add to `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "explain-changes-mcp": {
+    "explain-changes": {
       "command": "npx",
-      "args": ["-y", "explain-changes-mcp@latest"]
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Claude Code</b></summary>
-
-Use the Claude Code CLI:
-
-```bash
-claude mcp add explain-changes-mcp npx -y explain-changes-mcp@latest
-```
-
-Or manually edit `~/.claude/config.json`:
-
-```json
-{
-  "mcpServers": {
-    "explain-changes-mcp": {
-      "command": "npx",
-      "args": ["-y", "explain-changes-mcp@latest"]
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>VS Code / VS Code Insiders</b></summary>
-
-[<img src="https://img.shields.io/badge/Install%20in%20VS%20Code-0098FF?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22explain-changes-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22explain-changes-mcp%40latest%22%5D%7D)
-
-Or add to `settings.json`:
-
-```json
-{
-  "mcp.servers": {
-    "explain-changes-mcp": {
-      "command": "npx",
-      "args": ["-y", "explain-changes-mcp@latest"]
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Windsurf</b></summary>
-
-Add to your Windsurf MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "explain-changes-mcp": {
-      "command": "npx",
-      "args": ["-y", "explain-changes-mcp@latest"]
+      "args": ["-y", "explain-changes-mcp"]
     }
   }
 }
@@ -153,14 +99,32 @@ Add to your Windsurf MCP configuration:
 <details>
 <summary><b>Claude Desktop</b></summary>
 
-Follow the [MCP install guide](https://modelcontextprotocol.io/quickstart/user), then add to `claude_desktop_config.json`:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "explain-changes-mcp": {
+    "explain-changes": {
       "command": "npx",
-      "args": ["-y", "explain-changes-mcp@latest"]
+      "args": ["-y", "explain-changes-mcp"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Windsurf</b></summary>
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "explain-changes": {
+      "command": "npx",
+      "args": ["-y", "explain-changes-mcp"]
     }
   }
 }
@@ -170,94 +134,54 @@ Follow the [MCP install guide](https://modelcontextprotocol.io/quickstart/user),
 
 ---
 
-## Tool: `show_diff_explanation`
+## Packages
 
-Renders a git diff with review annotations in the browser.
-
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `title` | string | Yes | Page title |
-| `diff` | string | Yes | Raw git diff output (unified format) |
-| `summary` | string | No | High-level overview of changes |
-| `annotations` | array | No | Review comments for specific changes |
-| `globalActions` | array | No | Action buttons in the header |
-| `editor` | string | No | `"vscode"`, `"cursor"`, or `"auto"` |
-
-### Annotation Object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | string | Yes | File path |
-| `line` | number | No | Line number to attach comment to |
-| `explanation` | string | Yes | Review comment |
-| `actions` | array | No | Array of `{ label, prompt }` for action buttons |
-
-### Action Object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `label` | string | Yes | Button label |
-| `prompt` | string | Yes | Prompt to pre-fill in Cursor chat |
+| Package | Description |
+|---------|-------------|
+| [packages/extension](./packages/extension) | VS Code/Cursor extension that displays diff explanations |
+| [packages/mcp](./packages/mcp) | MCP server with the `show_diff_explanation` tool |
 
 ---
 
-## MCP Prompt
+## Architecture
 
-### `explain-changes`
-Instructions for reviewing git diffs with visual output. The AI will get the diff, review the changes, and call the tool with appropriate annotations.
-
----
-
-## Example Usage
-
-Ask your AI agent: **"Explain the last commit"**
-
-The agent will:
-1. Run `git diff HEAD~1 HEAD`
-2. Review the changes
-3. Call `show_diff_explanation`:
-
-```json
-{
-  "title": "Add JWT Authentication",
-  "summary": "Added JWT auth middleware and applied to API routes.",
-  "diff": "diff --git a/src/auth.ts b/src/auth.ts\n...",
-  "annotations": [
-    {
-      "file": "src/auth.ts",
-      "line": 5,
-      "explanation": "Extracts Bearer token from Authorization header",
-      "actions": [
-        { "label": "Add tests", "prompt": "Write unit tests for this auth middleware" }
-      ]
-    }
-  ],
-  "globalActions": [
-    { "label": "Security Review", "prompt": "Review this code for security vulnerabilities" }
-  ],
-  "editor": "cursor"
-}
 ```
-
-4. Browser opens with diff2html rendered diff + inline review comments
+┌─────────────────┐     writes JSON      ┌─────────────────┐
+│   MCP Server    │ ──────────────────▶  │ ~/.explain-     │
+│                 │                      │ changes/        │
+│ show_diff_      │                      │ pending.json    │
+│ explanation     │                      └────────┬────────┘
+└─────────────────┘                               │
+                                                  │ watches
+                                                  ▼
+                                         ┌─────────────────┐
+                                         │  VS Code/Cursor │
+                                         │   Extension     │
+                                         │                 │
+                                         │  Webview Panel  │
+                                         └─────────────────┘
+```
 
 ---
 
 ## Development
 
 ```bash
-npm run dev
+# Install dependencies
+npm install
+
+# Build all packages
+npm run build
+
+# Build extension only
+npm run build:extension
+
+# Build MCP only
+npm run build:mcp
+
+# Package extension as .vsix
+cd packages/extension && npm run package
 ```
-
-Opens http://localhost:3456 with hot reload. Edit `src/html-generator.ts` to change styling, `dev/server.mjs` to change mock data.
-
----
-
-## Inspiration
-
-Inspired by [Cline's `/explain-changes` feature](https://x.com/cline/status/1995892768116494488).
 
 ---
 

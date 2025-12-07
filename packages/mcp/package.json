@@ -1,0 +1,35 @@
+{
+  "name": "explain-changes-mcp",
+  "version": "2.0.0",
+  "description": "MCP tool for AI to visualize code changes with inline annotations in VS Code/Cursor",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "explain-changes-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "explain-changes",
+    "ai",
+    "diff",
+    "vscode",
+    "cursor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
