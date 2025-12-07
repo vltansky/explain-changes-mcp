@@ -6,8 +6,6 @@
 
 Just like humans review each other's PRs, your AI reviews its own changes — with inline annotations that appear directly in a VS Code/Cursor panel.
 
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-
 ![Screenshot](assets/screenshot.png)
 
 </div>
